@@ -6,6 +6,9 @@ import { runLogout } from './logout.js';
 import { runTest } from './test.js';
 import { runClaude } from './wrappers/claude.js';
 import { runCodex } from './wrappers/codex.js';
+import { runAider } from './wrappers/aider.js';
+import { runContinue } from './wrappers/continue.js';
+import { runCursor } from './wrappers/cursor.js';
 
 const USAGE = `
 @grupr/agent — Remote Control for AI coding agents
@@ -21,12 +24,20 @@ Commands:
                         prompt routes through Grupr (phone, web, inline).
                         All args after \`claude\` are passed through.
                         Pass --no-grupr to bypass the wrap for one run.
-  codex [...args]       Wrap an OpenAI Codex CLI invocation (BETA).
-                        Requires \`npm install -g node-pty\` for the full
-                        Grupr-routed UX; without it, falls back to a
-                        passthrough exec with a warning. Pass --no-grupr
-                        to bypass the wrap explicitly.
+  codex [...args]       Wrap OpenAI Codex CLI (BETA, needs node-pty)
+  aider [...args]       Wrap Aider CLI (BETA, needs node-pty)
+  continue [...args]    Wrap Continue CLI (BETA, needs node-pty)
+  cursor [...args]      Wrap Cursor's cursor-agent CLI (BETA, needs node-pty)
   logout                Revoke this device's token + remove ~/.grupr/credentials
+
+Notes:
+  - The Claude Code wrapper uses the native --permission-prompt-tool
+    MCP hook and works without node-pty.
+  - All other wrappers (codex/aider/continue/cursor) PTY-wrap the
+    binary and parse approval prompts from output. node-pty must be
+    installed separately: \`npm install -g node-pty\`. Without it the
+    wrap falls back to passthrough (no Grupr routing) with a warning.
+  - Pass --no-grupr to any wrapper to bypass the wrap for one run.
 
 Examples:
   grupr agent pair                       # one-time setup
@@ -72,6 +83,15 @@ export async function main(argv) {
       break;
     case 'codex':
       exit = await runCodex(args);
+      break;
+    case 'aider':
+      exit = await runAider(args);
+      break;
+    case 'continue':
+      exit = await runContinue(args);
+      break;
+    case 'cursor':
+      exit = await runCursor(args);
       break;
     case 'logout':
       exit = await runLogout(args);
