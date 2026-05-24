@@ -5,6 +5,7 @@ import { runStatus } from './status.js';
 import { runLogout } from './logout.js';
 import { runTest } from './test.js';
 import { runClaude } from './wrappers/claude.js';
+import { runCodex } from './wrappers/codex.js';
 
 const USAGE = `
 @grupr/agent — Remote Control for AI coding agents
@@ -20,6 +21,11 @@ Commands:
                         prompt routes through Grupr (phone, web, inline).
                         All args after \`claude\` are passed through.
                         Pass --no-grupr to bypass the wrap for one run.
+  codex [...args]       Wrap an OpenAI Codex CLI invocation (BETA).
+                        Requires \`npm install -g node-pty\` for the full
+                        Grupr-routed UX; without it, falls back to a
+                        passthrough exec with a warning. Pass --no-grupr
+                        to bypass the wrap explicitly.
   logout                Revoke this device's token + remove ~/.grupr/credentials
 
 Examples:
@@ -27,6 +33,7 @@ Examples:
   grupr agent claude                     # start a Grupr-wrapped Claude Code session
   grupr agent claude --resume            # resume the last session, still wrapped
   grupr agent claude --no-grupr          # one-shot bypass (during outages)
+  grupr agent codex                      # Grupr-wrapped Codex (beta, needs node-pty)
 
 Environment:
   GRUPR_API_BASE  Override the api base URL (default: https://api.grupr.ai)
@@ -62,6 +69,9 @@ export async function main(argv) {
       break;
     case 'claude':
       exit = await runClaude(args);
+      break;
+    case 'codex':
+      exit = await runCodex(args);
       break;
     case 'logout':
       exit = await runLogout(args);
