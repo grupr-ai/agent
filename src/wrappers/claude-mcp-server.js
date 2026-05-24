@@ -256,13 +256,26 @@ async function routeApproval(toolName, toolInput) {
       continue;
     }
     debug(`decision: ${a.status}`);
+    // Surface the user-typed reason (W6.2) back to the agent on deny.
+    // The api stores it in decision.reason; coerce gracefully if absent.
+    const userReason = (() => {
+      try {
+        const d = typeof a.decision === 'string' ? JSON.parse(a.decision) : a.decision;
+        const r = d?.reason;
+        return typeof r === 'string' && r.trim() ? r.trim() : '';
+      } catch {
+        return '';
+      }
+    })();
     switch (a.status) {
       case 'approved':
         return { behavior: 'allow' };
       case 'denied':
         return {
           behavior: 'deny',
-          message: 'Denied via Grupr Remote Control.',
+          message: userReason
+            ? `Denied via Grupr Remote Control: ${userReason}`
+            : 'Denied via Grupr Remote Control.',
         };
       case 'timed_out':
         return {

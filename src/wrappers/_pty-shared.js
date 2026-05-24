@@ -157,7 +157,14 @@ export async function runPTYWrappedAgent(cfg) {
       interceptInFlight = true;
       promptBuffer = '';
       routeApproval(authHeaders, sessionId, cfg.agentKind, tool_name, request_payload)
-        .then((approved) => {
+        .then(({ approved, reason }) => {
+          // W6.2: surface user-typed deny reason above the PTY so the
+          // developer sees it before the wrapped agent reacts. PTY
+          // wrappers can't pass structured data to the agent the way
+          // the Claude Code MCP wrapper can, so this is the channel.
+          if (!approved && reason) {
+            process.stderr.write(`\n[grupr] Denied: ${reason}\n`);
+          }
           term.write(approved ? 'y\r' : 'n\r');
         })
         .catch((err) => {
@@ -202,7 +209,7 @@ async function routeApproval(authHeaders, sessionId, agentKind, toolName, reques
     },
     { headers: authHeaders, timeoutMs: 15_000 },
   );
-  if (created.auto_approved) return true;
+  if (created.auto_approved) return { approved: true, reason: '' };
 
   const approvalId = created.approval?.id;
   if (!approvalId) throw new Error('api did not return an approval id');
@@ -214,7 +221,14 @@ async function routeApproval(authHeaders, sessionId, agentKind, toolName, reques
     });
     const a = r.approval;
     if (a.status === 'pending') continue;
-    return a.status === 'approved';
+    // W6.2: extract user-typed reason from decision JSON for caller to
+    // surface above the PTY.
+    let reason = '';
+    try {
+      const d = typeof a.decision === 'string' ? JSON.parse(a.decision) : a.decision;
+      if (d && typeof d.reason === 'string') reason = d.reason.trim();
+    } catch {}
+    return { approved: a.status === 'approved', reason };
   }
 }
 
