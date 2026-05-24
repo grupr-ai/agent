@@ -1,0 +1,35 @@
+{
+  "name": "@grupr/agent",
+  "version": "0.1.0-alpha.1",
+  "description": "Grupr Remote Control — pair your dev machine to your Grupr account and approve coding-agent actions from your phone, web, or inline within an active Grupr review.",
+  "type": "module",
+  "bin": {
+    "grupr": "./bin/grupr.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node bin/grupr.js"
+  },
+  "keywords": [
+    "grupr",
+    "code-review",
+    "claude-code",
+    "codex",
+    "agent",
+    "approval",
+    "remote-control"
+  ],
+  "author": "Grupr",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grupr-ai/agent"
+  }
+}
