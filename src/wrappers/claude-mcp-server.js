@@ -258,24 +258,35 @@ async function routeApproval(toolName, toolInput) {
     debug(`decision: ${a.status}`);
     // Surface the user-typed reason (W6.2) back to the agent on deny.
     // The api stores it in decision.reason; coerce gracefully if absent.
-    const userReason = (() => {
-      try {
-        const d = typeof a.decision === 'string' ? JSON.parse(a.decision) : a.decision;
-        const r = d?.reason;
-        return typeof r === 'string' && r.trim() ? r.trim() : '';
-      } catch {
-        return '';
-      }
-    })();
+    // V7.10: also extract the edit payload if user edited the command
+    // before approving. For Bash this is {cmd: "<edited>"}.
+    let userReason = '';
+    let userEdit = null;
+    try {
+      const d = typeof a.decision === 'string' ? JSON.parse(a.decision) : a.decision;
+      const r = d?.reason;
+      if (typeof r === 'string' && r.trim()) userReason = r.trim();
+      const e = d?.edit;
+      if (e && typeof e === 'object') userEdit = e;
+    } catch {}
     switch (a.status) {
-      case 'approved':
+      case 'approved': {
         // V7.2: if the user added a note on approve, include it as the
         // MCP message field. Claude Code surfaces this back to the model
         // so "Approved: but also check X" becomes context for the next
         // turn rather than being silently dropped.
-        return userReason
-          ? { behavior: 'allow', message: `Approved via Grupr Remote Control. User note: ${userReason}` }
-          : { behavior: 'allow' };
+        // V7.10: if the user edited the command, send it as updatedInput
+        // so Claude Code runs the edited version instead of the original.
+        const res = { behavior: 'allow' };
+        if (userReason) {
+          res.message = `Approved via Grupr Remote Control. User note: ${userReason}`;
+        }
+        if (userEdit) {
+          res.updatedInput = userEdit;
+          debug(`approve with edit: ${JSON.stringify(userEdit).slice(0, 100)}`);
+        }
+        return res;
+      }
       case 'denied':
         return {
           behavior: 'deny',
