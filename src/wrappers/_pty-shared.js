@@ -162,8 +162,10 @@ export async function runPTYWrappedAgent(cfg) {
           // developer sees it before the wrapped agent reacts. PTY
           // wrappers can't pass structured data to the agent the way
           // the Claude Code MCP wrapper can, so this is the channel.
-          if (!approved && reason) {
-            process.stderr.write(`\n[grupr] Denied: ${reason}\n`);
+          // V7.2: same channel for the approve-with-note path.
+          if (reason) {
+            const verb = approved ? 'Approved' : 'Denied';
+            process.stderr.write(`\n[grupr] ${verb}: ${reason}\n`);
           }
           term.write(approved ? 'y\r' : 'n\r');
         })

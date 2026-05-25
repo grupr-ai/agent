@@ -269,7 +269,13 @@ async function routeApproval(toolName, toolInput) {
     })();
     switch (a.status) {
       case 'approved':
-        return { behavior: 'allow' };
+        // V7.2: if the user added a note on approve, include it as the
+        // MCP message field. Claude Code surfaces this back to the model
+        // so "Approved: but also check X" becomes context for the next
+        // turn rather than being silently dropped.
+        return userReason
+          ? { behavior: 'allow', message: `Approved via Grupr Remote Control. User note: ${userReason}` }
+          : { behavior: 'allow' };
       case 'denied':
         return {
           behavior: 'deny',
