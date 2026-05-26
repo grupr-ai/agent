@@ -4,6 +4,9 @@ import { runPair } from './pair.js';
 import { runStatus } from './status.js';
 import { runLogout } from './logout.js';
 import { runTest } from './test.js';
+import { runRevoke } from './revoke.js';
+import { runAllow } from './allow.js';
+import { runHistory } from './history.js';
 import { runClaude } from './wrappers/claude.js';
 import { runCodex } from './wrappers/codex.js';
 import { runAider } from './wrappers/aider.js';
@@ -29,6 +32,13 @@ Commands:
   aider [...args]       Wrap Aider CLI (BETA, needs node-pty)
   continue [...args]    Wrap Continue CLI (BETA, needs node-pty)
   cursor [...args]      Wrap Cursor's cursor-agent CLI (BETA, needs node-pty)
+  revoke                Self-revoke THIS device (server + local creds). Use the
+                        web for revoking other devices.
+  allow <pattern>       Create a device-scoped allowlist rule. Future matching
+                        requests auto-approve. Glob wildcards (*) supported.
+                        Destructive ops are NEVER auto-approved.
+  history [-n N]        Recent approvals from this device (default 20, max 200).
+                        Color-coded status when stdout is a TTY.
   logout                Revoke this device's token + remove ~/.grupr/credentials
 
 Notes:
@@ -105,6 +115,15 @@ export async function main(argv) {
       break;
     case 'logout':
       exit = await runLogout(args);
+      break;
+    case 'revoke':
+      exit = await runRevoke(args);
+      break;
+    case 'allow':
+      exit = await runAllow(args);
+      break;
+    case 'history':
+      exit = await runHistory(args);
       break;
     default:
       process.stderr.write(`Unknown command: ${cmd}\n${USAGE}`);
