@@ -9,6 +9,7 @@ import { runCodex } from './wrappers/codex.js';
 import { runAider } from './wrappers/aider.js';
 import { runContinue } from './wrappers/continue.js';
 import { runCursor } from './wrappers/cursor.js';
+import { checkForUpdate } from './version-check.js';
 
 const USAGE = `
 @grupr/agent — Remote Control for AI coding agents
@@ -52,10 +53,19 @@ Environment:
 `;
 
 export async function main(argv) {
+  // V9.5: fire-and-forget update check. Skip for wrapper subcommands
+  // because they take over stdio (claude/codex/aider/continue/cursor)
+  // and a deferred stderr write mid-session would be noisy. The check
+  // runs for pair / status / test / logout / help where it can print
+  // cleanly after the command exits.
+  const peekedCmd = argv[0] === 'agent' ? argv[1] : argv[0];
+  const isWrapper = ['claude', 'codex', 'aider', 'continue', 'cursor'].includes(peekedCmd);
+  if (!isWrapper) checkForUpdate();
+
   // Two valid argv shapes:
   //   grupr <cmd>          → argv = [cmd, ...rest]
   //   grupr agent <cmd>    → argv = ['agent', cmd, ...rest]
-  // We accept both for compatibility with how Bret typed it in the design doc.
+  // We accept both for compatibility with how the design doc describes the UX.
   let args = argv.slice();
   if (args[0] === 'agent') args.shift();
 
