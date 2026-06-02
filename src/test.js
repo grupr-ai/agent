@@ -49,10 +49,21 @@ export async function runTest(_args) {
   // Long-poll. Server returns whenever status flips out of pending OR
   // after 90s. We loop in case the user takes longer.
   while (true) {
-    const r = await apiGet(`/api/agent-approvals/${approvalId}/wait`, {
-      headers: auth,
-      timeoutMs: 100_000,
-    });
+    let r;
+    try {
+      r = await apiGet(`/api/agent-approvals/${approvalId}/wait`, {
+        headers: auth,
+        timeoutMs: 100_000,
+      });
+    } catch (e) {
+      // The long-poll can be cut by an intermediary (Cloudflare ~100s idle
+      // timeout / 520, a dropped connection, a client-side fetch timeout)
+      // while the approval is still pending server-side. Reconnect and
+      // keep waiting rather than aborting — the decision isn't lost.
+      process.stdout.write('~');
+      await new Promise((res) => setTimeout(res, 2000));
+      continue;
+    }
     const a = r.approval;
     if (a.status === 'pending') {
       process.stdout.write('.');

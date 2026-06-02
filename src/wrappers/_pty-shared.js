@@ -217,10 +217,20 @@ async function routeApproval(authHeaders, sessionId, agentKind, toolName, reques
   if (!approvalId) throw new Error('api did not return an approval id');
 
   while (true) {
-    const r = await apiGet(`/api/agent-approvals/${approvalId}/wait`, {
-      headers: authHeaders,
-      timeoutMs: 100_000,
-    });
+    let r;
+    try {
+      r = await apiGet(`/api/agent-approvals/${approvalId}/wait`, {
+        headers: authHeaders,
+        timeoutMs: 100_000,
+      });
+    } catch {
+      // The long-poll can be cut by an intermediary (Cloudflare ~100s idle
+      // / 520, a dropped connection, or our own client timeout) while the
+      // approval is still pending server-side. Reconnect silently rather
+      // than aborting — writing to stdout here would corrupt the PTY.
+      await new Promise((res) => setTimeout(res, 2000));
+      continue;
+    }
     const a = r.approval;
     if (a.status === 'pending') continue;
     // W6.2: extract user-typed reason from decision JSON for caller to

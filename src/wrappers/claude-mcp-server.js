@@ -246,10 +246,21 @@ async function routeApproval(toolName, toolInput) {
   // resume. Each iteration is bounded by a 100s client timeout to
   // give the server room to return naturally before we retry.
   while (true) {
-    const r = await apiGet(`/api/agent-approvals/${approvalId}/wait`, {
-      headers: authHeaders,
-      timeoutMs: 100_000,
-    });
+    let r;
+    try {
+      r = await apiGet(`/api/agent-approvals/${approvalId}/wait`, {
+        headers: authHeaders,
+        timeoutMs: 100_000,
+      });
+    } catch (e) {
+      // Long-poll cut by an intermediary (Cloudflare ~100s idle / 520, a
+      // dropped connection, or our client timeout) while the approval is
+      // still pending server-side. Reconnect rather than failing the tool
+      // call — the decision isn't lost.
+      debug(`wait: reconnecting after error: ${e?.message || e}`);
+      await new Promise((res) => setTimeout(res, 2000));
+      continue;
+    }
     const a = r.approval;
     if (a.status === 'pending') {
       // Server returned because its long-poll deadline elapsed. Loop.
