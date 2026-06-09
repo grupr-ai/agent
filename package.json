@@ -1,6 +1,6 @@
 {
   "name": "@grupr/agent",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0-beta.3",
   "description": "Grupr Remote Control — pair your dev machine to your Grupr account and approve coding-agent actions from your phone, web, or inline within an active Grupr review.",
   "type": "module",
   "bin": {
