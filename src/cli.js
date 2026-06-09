@@ -12,7 +12,7 @@ import { runCodex } from './wrappers/codex.js';
 import { runAider } from './wrappers/aider.js';
 import { runContinue } from './wrappers/continue.js';
 import { runCursor } from './wrappers/cursor.js';
-import { checkForUpdate } from './version-check.js';
+import { checkForUpdate, flushUpdateCheck } from './version-check.js';
 
 const USAGE = `
 @grupr/agent — Remote Control for AI coding agents
@@ -127,7 +127,26 @@ export async function main(argv) {
       break;
     default:
       process.stderr.write(`Unknown command: ${cmd}\n${USAGE}`);
-      return 1;
+      exit = 1;
+      break;
   }
-  return typeof exit === 'number' ? exit : 0;
+  // Settle any in-flight background update check so its stderr notice prints
+  // and no undici fetch from the version check is still mid-flight at exit.
+  await flushUpdateCheck();
+  const finalCode = typeof exit === 'number' ? exit : 0;
+  if (isWrapper) {
+    // Wrappers PTY-wrap a binary (node-pty) and need a hard process.exit so
+    // the native handle is torn down and the shell returns promptly with the
+    // wrapped process's exit code. Pre-existing, verified-working path.
+    process.exit(finalCode);
+  }
+  // Non-wrapper commands: set the exit code and let the event loop drain
+  // naturally instead of calling process.exit(). A short command that just
+  // did a fetch() still has undici's keep-alive socket in the pool;
+  // process.exit() tears it down mid-flight and crashes libuv on Windows
+  // ("Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)", src\win\async.c).
+  // Natural drain (undici unrefs idle sockets) closes it cleanly — exactly
+  // what the already-working status/test commands do on their code-0 path.
+  process.exitCode = finalCode;
+  return finalCode;
 }

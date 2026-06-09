@@ -19,6 +19,13 @@ const CACHE_FILE = path.join(os.homedir(), '.grupr', 'version-cache.json');
 
 let localVersionMemo = null;
 
+// Holds the in-flight background update check (a Promise) so the CLI can
+// flush it before the process exits. Without this, a fast-returning
+// command that calls process.exit() (e.g. any non-zero exit code) races
+// the live undici fetch and crashes libuv on Windows with
+// "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)".
+let pendingCheck = null;
+
 // Return the version from this package's package.json. Computed once
 // per process. Returns null if it can't be parsed (running uninstalled
 // from a checkout etc.) — caller treats null as "skip the check".
@@ -115,13 +122,15 @@ export function checkForUpdate() {
     return;
   }
 
-  // Cache miss or stale — fetch in the background, don't block.
-  setImmediate(async () => {
+  // Cache miss or stale — fetch in the background. checkForUpdate still
+  // returns immediately (we only assign the promise, never await it), but
+  // recording it lets flushUpdateCheck() settle the fetch before exit so
+  // process.exit() never tears down a live undici handle.
+  pendingCheck = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
       const resp = await fetch(REGISTRY_URL, { signal: controller.signal });
-      clearTimeout(timeout);
       if (!resp.ok) return;
       const json = await resp.json();
       const latest = typeof json?.version === 'string' ? json.version : null;
@@ -130,8 +139,25 @@ export function checkForUpdate() {
       if (isNewer(local, latest)) printUpdateNotice(local, latest);
     } catch {
       // network failures are silent
+    } finally {
+      clearTimeout(timeout);
     }
-  });
+  })();
+}
+
+// flushUpdateCheck awaits any in-flight background update check. Call it
+// before the process exits so a fast-returning command's process.exit()
+// can't race a live undici fetch (which aborts libuv on Windows). No-op
+// when nothing is pending — cache hit, opted out, or a wrapper command
+// that never started a check. Bounded by the fetch's own 4s abort timer.
+export async function flushUpdateCheck() {
+  if (!pendingCheck) return;
+  try {
+    await pendingCheck;
+  } catch {
+    // already swallowed inside the check; nothing to surface
+  }
+  pendingCheck = null;
 }
 
 function printUpdateNotice(local, latest) {
