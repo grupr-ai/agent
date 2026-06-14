@@ -9,7 +9,9 @@ npm install -g @grupr/agent
 grupr agent pair
 ```
 
-`npx @grupr/agent pair` also works if you'd rather skip the global install.
+`npx @grupr/agent pair` also works on macOS/Linux if you'd rather skip the global install.
+
+> **Windows:** prefer the global install above. `npx` can fail to launch the `grupr` binary for scoped packages whose bin name differs from the package name — you'll see `'grupr' is not recognized as an internal or external command`. `npm install -g @grupr/agent` then `grupr agent pair` works reliably.
 
 ## Commands
 
